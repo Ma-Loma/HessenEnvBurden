@@ -40,7 +40,7 @@ plus_LDEN <- read_delim(
     .keep = "unused"
   )
 
-plus_L24h<-plus_LDEN %>% mutate(
+plus_L24h <- plus_LDEN %>% mutate(
   Lo = Lo - 3.3,
   Hi = Hi - 3.3,
   source = "plus",
@@ -52,6 +52,11 @@ plus_LDEN_red <-
                        Hi = Hi - 3,
                        source = "plus-3dB")
 
+plus_L24h_red <-
+  plus_L24h %>% mutate(Lo = Lo - 3,
+                       Hi = Hi - 3,
+                       source = "plus-3dB")
+
 # test_LDEN <- read_delim(
 #   "rawdata/Exponierte_Test_LDEN.csv",
 #   ";",
@@ -60,13 +65,13 @@ plus_LDEN_red <-
 #                   decimal_mark = ","),
 #   trim_ws = TRUE
 # ) %>% mutate(noiseMetric = "LDEN", source = "test")
-# 
-# 
+#
+#
 # test_LDEN_red <-
 #   test_LDEN %>% mutate(Lo = Lo - 3,
 #                        Hi = Hi - 3,
 #                        source = "test-3dB")
-# 
+#
 # test_L24h <-
 #   test_LDEN %>% mutate(
 #     Lo = Lo - 3.3,
@@ -105,6 +110,7 @@ exposure_list <-
   rbind(plus_LDEN,
         plus_L24h,
         plus_LDEN_red,
+        plus_L24h_red,
         END_LDEN,
         END_L24h,
         END_Lnight) %>% mutate(
@@ -127,8 +133,8 @@ pl1 <-
   ggplot(exposure_list, aes(x = Lo, y = ExposedPerdB, color = source))
 pl1 + geom_step(direction = "hv") + #waagrechter Strich bis zum nächsten Pegelwert, dann gerade runter
   facet_grid(cols = vars(noiseMetric)) +
-  geom_segment(aes(xend = Hi, yend = ExposedPerdB))+#geom_segment, um noch das letzte waagrechte hinzuzufügen. Alleine wären keine senkrechten Striche
-  ylim(0, 300000)+xlim(40,85)
+  geom_segment(aes(xend = Hi, yend = ExposedPerdB)) + #geom_segment, um noch das letzte waagrechte hinzuzufügen. Alleine wären keine senkrechten Striche
+  ylim(0, 300000) + xlim(40, 85)
 ggsave("graphs/Exposure.pdf")
 
 short_l <- doseRes_list %>% filter(included == TRUE) %>%
@@ -200,12 +206,15 @@ for (j in 1:nrow(er_list)) {
 }
 er_list <- er_list %>% mutate(affected_i = Exposed * response / 100)
 
-dw_list<-data.frame(outcome=c("Annoyance","Sleep disorders"),dw=c(0.02,0.07))
+dw_list <-
+  data.frame(outcome = c("Annoyance", "Sleep disorders"),
+             dw = c(0.02, 0.07))
 
-er_list %>% filter(burdenCalculation == "paf") %>% aggregate(affected_i ~ source + noiseMetric + shortName +
-                                                               outcome,
-                                                             data = .,
-                                                             sum) %>%
+streetNoiseBurden1 <- er_list %>%
+  filter(burdenCalculation == "paf") %>% aggregate(affected_i ~ source + noiseMetric + shortName +
+                                                     outcome,
+                                                   data = .,
+                                                   sum) %>%
   mutate(PAF = affected_i / popHessen / (1 + affected_i / popHessen) *
            100,
          .keep = "unused") %>%
@@ -213,15 +222,27 @@ er_list %>% filter(burdenCalculation == "paf") %>% aggregate(affected_i ~ source
     burden_list, population ==
       "Hessians aged over 40 years"
   )),
-  by = "outcome") %>% 
-  left_join(.,dw_list,by="outcome") %>% 
-  mutate(attrBurden=PAF*burden/100) %>% select(source,noiseMetric,shortName,PAF,attrBurden)
+  by = "outcome") %>%
+  left_join(., dw_list, by = "outcome") %>%
+  mutate(attrBurden = PAF * burden / 100) %>% 
+  select(source, noiseMetric, shortName,outcome, PAF, attrBurden) %>% 
+  mutate(dw = NA ,HAorHSD=NA)
 
-er_list %>%
+streetNoiseBurden2<-er_list %>%
   filter(burdenCalculation == "total") %>%
-  aggregate(affected_i ~ source + noiseMetric + shortName+outcome,
+  aggregate(affected_i ~ source + noiseMetric + shortName + outcome,
             data = .,
             sum) %>%
-  left_join(.,dw_list,by="outcome") %>% 
-  mutate(HAorHSD = affected_i, .keep = "unused") %>% 
-  mutate(attrBurden = HAorHSD*dw)
+  left_join(., dw_list, by = "outcome") %>%
+  mutate(HAorHSD = affected_i, .keep = "unused") %>%
+  mutate(attrBurden = HAorHSD * dw,PAF=NA)
+names(streetNoiseBurden1)
+names(streetNoiseBurden2)
+streetNoiseBurden <- rbind(streetNoiseBurden1,streetNoiseBurden2)
+pl3<-ggplot(streetNoiseBurden,aes(x=shortName,xlab=NULL,y=100000*attrBurden/popHessen,fill=shortName))+
+  theme(axis.text.x = element_blank())+
+  geom_col()+
+  facet_grid(cols = vars(source))+geom_text(label=streetNoiseBurden$shortName,size=3.5,angle=55)+
+  xlab(NULL) + ylab("attributable Burden /100000")
+pl3
+ggsave("graphs/StreetNoiseBurden.pdf")
