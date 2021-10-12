@@ -224,10 +224,23 @@ streetNoiseBurden1 <-
   mutate(attrBurden = PAF * burden / 100) %>%
   select(source, noiseMetric, shortName, outcome, PAF, attrBurden) %>%
   mutate(dw = NA , HAorHSD = NA) 
+<<<<<<< HEAD
 
 #Problem: die Autokorrelation ist nicht eingetragen#
 
 
+=======
+
+#Problem: die Autokorrelation ist nicht eingetragen#
+
+bla<-set_errors(seq(2,8,1),value=1)
+blubb<-set_errors(seq(5,11,1),value=1)
+correl(bla[1],bla[2])<-1
+correl(bla[1],bla[2])
+print(bla[1]+bla[2],digits=4)
+
+
+>>>>>>> 3249b24e34246c46e073382be8ef44273be816dc
 #-------------------------------------------------------#
 streetNoiseBurden2 <- er_list %>%
   filter(burdenCalculation == "total") %>%
