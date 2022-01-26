@@ -6,7 +6,14 @@ library(tidyverse)
 library(purrr)
 #install.packages("errors")
 library(errors)
+library(Hmisc)
+#install.packages("ggrepel")
+require("ggrepel")
 
+# install.packages("remotes")
+# remotes::install_github("coolbutuseless/ggpattern")
+# install.packages("ggpattern")
+# library(ggpattern)
 
 popHessen <-
   6116203#Quelle: Summe der Exponierten nach Kartierungsdokumentation
@@ -21,14 +28,53 @@ doseRes_list <- read_delim(
 doseRes_list$rrPer10dB <-
   set_errors(doseRes_list$rrPer10dB,
              doseRes_list$rrPer10dB - doseRes_list$rrLoCI)
-doseRes_list$linearTerm<-doseRes_list$linearTerm %>% set_errors()
-doseRes_list$constantTerm<-doseRes_list$constantTerm %>% set_errors()
-doseRes_list$quadraticTerm<-doseRes_list$quadraticTerm %>% set_errors()
+doseRes_list$linearTerm <- doseRes_list$linearTerm %>% set_errors()
+doseRes_list$constantTerm <-
+  doseRes_list$constantTerm %>% set_errors()
+doseRes_list$quadraticTerm <-
+  doseRes_list$quadraticTerm %>% set_errors()
 
 set <-
   .Primitive("[[<-") #eine Hilfsfunktion, die definiert wird, um in Pipes Werte manipulieren zu können.
 
-plus_LDEN <- read_delim(
+plus_Lochmann <- read_delim(
+  "rawdata/StraßePlusHessen2.txt",
+  " ",
+  escape_double = FALSE,
+  locale = locale(decimal_mark = "."),
+  trim_ws = TRUE#,  col_types = "cnnccn"
+) %>%
+  filter(FP_HP == "HP") %>% #nutze hier nur die Pegel der Hauspunkte (also lauteste Fassadenpegel)
+  transmute(
+    Lo = start,
+    LoIncluded = TRUE,
+    Hi = end,
+    HiIncluded = FALSE,
+    Exposed = Belastete,
+    noiseMetric = Metrik,
+    source = "PLUS"
+  )
+plus_Lochmann$noiseMetric <- plus_Lochmann$noiseMetric %>%
+  ifelse(. == "LN", "Lnight", .)
+
+# persSum<-plus_Lochmann %>% group_by(noiseMetric) %>% summarise_at(c("Exposed"),sum)
+# persSum
+# persSum[2]/popHessen
+## rausfinden, dass in diesem Datensatz etwa 9 % weniger Belastete zu finden sind als hessische Einwohner.
+
+plus_Lochmann <- plus_Lochmann %>% filter(noiseMetric == "LDEN") %>%
+  mutate(noiseMetric = "L24h",
+         Lo = Lo - 3.3,
+         Hi = Hi - 3.3) %>%
+  rbind(plus_Lochmann)
+plus_Lochmann <- plus_Lochmann %>%
+  mutate(source = "PLUS - 3 dB",
+         Lo = Lo - 3,
+         Hi = Hi - 3) %>%
+  rbind(plus_Lochmann)
+
+
+plus_LDEN_Hege <- read_delim(
   "rawdata/PLUS_Lden_Hegewald.csv",
   ";",
   escape_double = FALSE,
@@ -40,32 +86,33 @@ plus_LDEN <- read_delim(
             sum) %>%
   set(1, "road_lden", 39.9) %>%
   mutate(
-    Lo = road_lden - 0.05,
+    Lo = round(road_lden - 0.05, digits = 2),
     LoIncluded = TRUE,
-    Hi = road_lden + 0.05,
+    Hi = round(road_lden + 0.05, digits = 2),
     HiIncluded = FALSE,
     Exposed = ew_lden,
     noiseMetric = "LDEN",
-    source = "plus",
+    source = "PLUS-Kartierung",
     .keep = "unused"
   )
-
-plus_L24h <- plus_LDEN %>% mutate(
+#sum(plus_LDEN_Hege$Exposed)/popHessen
+#Beim Datensatz von Hegewald fehlen weniger als 1 % der Bevölkerung
+plus_L24h <- plus_LDEN_Hege %>% mutate(
   Lo = Lo - 3.3,
   Hi = Hi - 3.3,
-  source = "plus",
+  source = "PLUS-Kartierung",
   noiseMetric = "L24h"
 )
 
 plus_LDEN_red <-
-  plus_LDEN %>% mutate(Lo = Lo - 3,
-                       Hi = Hi - 3,
-                       source = "plus-3dB")
+  plus_LDEN_Hege %>% mutate(Lo = Lo - 3,
+                            Hi = Hi - 3,
+                            source = "PLUS-Kartierung - 3dB")
 
 plus_L24h_red <-
   plus_L24h %>% mutate(Lo = Lo - 3,
                        Hi = Hi - 3,
-                       source = "plus-3dB")
+                       source = "PLUS-Kartierung - 3dB")
 
 END_LDEN <- read_delim(
   "rawdata/Exponierte_ULR_LDEN.csv",
@@ -94,10 +141,11 @@ END_Lnight <- read_delim(
 ) %>% mutate(noiseMetric = "Lnight", source = "END")
 
 exposure_list <-
-  rbind(plus_LDEN,
-        plus_L24h,
-        plus_LDEN_red,
-        plus_L24h_red,
+  rbind(plus_Lochmann,
+        # plus_LDEN_Hege,
+        # plus_L24h,
+        # plus_LDEN_red,
+        # plus_L24h_red,
         END_LDEN,
         END_L24h,
         END_Lnight) %>% mutate(
@@ -105,7 +153,7 @@ exposure_list <-
           ExposedPerdB = Exposed /
             (Hi - Lo),
           .before = 1
-        )
+        ) %>% .[-which(.$Lmid == Inf), ]
 
 burden_list <- read_delim(
   "rawdata/AllRiskCauseSpecificBurden.csv",
@@ -115,19 +163,40 @@ burden_list <- read_delim(
   trim_ws = TRUE
 )
 
+####hier Vergleich von zwei beiden Expositions-Datensätze.
+# bla<-plus_Lochmann %>% filter(noiseMetric=="LDEN")
+# blubb<-left_join(bla,plus_LDEN_Hege,by=c("Hi","noiseMetric")) %>%
+#   mutate(diff=Exposed.x-Exposed.y,
+#          relDiff=(Exposed.x-Exposed.y)/Exposed.x)
+#
+# ggplot(blubb,aes(x=Hi,y=relDiff))+geom_point()
+# ggplot(blubb[-1,],aes(x=Hi,y=diff))+geom_point()
+# ggplot(blubb[-1,],aes(x=Exposed.x,y=diff,color=relDiff))+geom_point()
+# ggplot(blubb[-1,],aes(x=Exposed.x,y=Exposed.y,color=relDiff))+geom_point()
+
+matTheme<-
+  theme(text = element_text(size=rel(4)),
+        strip.text = element_text(size=rel(4)),
+        axis.text = element_text(size=rel(1.05)),
+        axis.title = element_text(size=rel(1.1)),
+        legend.text = element_text(size=rel(3.2)))
 
 pl1 <-
-  ggplot(exposure_list, aes(x = Lo, y = ExposedPerdB, color = source))
+  ggplot(exposure_list, aes(x = Lo, y = ExposedPerdB/100000, color = source))
 pl1 + geom_step(direction = "hv") + #waagrechter Strich bis zum nächsten Pegelwert, dann gerade runter
   facet_grid(cols = vars(noiseMetric)) +
-  geom_segment(aes(xend = Hi, yend = ExposedPerdB)) + #geom_segment, um noch das letzte waagrechte hinzuzufügen. Alleine wären keine senkrechten Striche
-  ylim(0, 300000) + xlim(40, 85)
-#ggsave("graphs/Exposure.pdf")
+  geom_segment(aes(xend = Hi, yend = ExposedPerdB/100000)) + #geom_segment, um noch das letzte waagrechte hinzuzufügen. Alleine wären keine senkrechten Striche
+  ylim(0, 3.2) + xlim(40, 85) +
+  labs(x = "Sound pressure level on (loudest/every) facade [dB(A)]",y="Exposed [100,000/dB]")+
+  scale_color_discrete("Data Source")+matTheme
+ggsave("graphs/Exposure.png",width=10,height = 5)
+#exposure_list %>% describe()
 
 short_l <- doseRes_list %>% filter(included == TRUE) %>%
   select(
     shortName,
     outcome,
+    outcomeGroup,
     noiseMetric,
     counterfactualValue,
     rrPer10dB,
@@ -148,7 +217,7 @@ short_l <- doseRes_list %>% filter(included == TRUE) %>%
 #     -(x_tbl$linearTerm*x_tbl$counterfactualValue )
 #   return(x_tbl)
 # }
-# 
+#
 # short_l[is.na(short_l$quadraticTerm), ] <-
 #   paraTransform(short_l[is.na(short_l$quadraticTerm), ])
 
@@ -177,6 +246,8 @@ doseRespF_data <-
     is.na(rrPer10dB) ~ quadr(.),
     !is.na(rrPer10dB) ~ linF(.)
   ))
+
+drfLabel<-doseRespF_data %>% group_by(shortName) %>% summarise_at(vars(effectSize),list(Ende=max))
 pl2 <-
   ggplot(
     doseRespF_data,
@@ -188,33 +259,53 @@ pl2 <-
       ymax = errors_max(effectSize)
     )
   )
-pl2 + geom_line() + facet_grid(cols = vars(noiseMetric)) + 
-  geom_ribbon(aes(fill =shortName, linetype = NA), alpha = 0.15)
-#ggsave("graphs/DRF.pdf")
+pl2 + geom_line(size = 1.2)+
+  # geom_text_repel(data=drfLabel,inherit.aes = F,#to be to facet selection!
+  #   mapping=aes(x = 70, y = Ende,
+  #   label = shortName,color=shortName),
+  #   size = 3.5,
+  #   angle = 55,show.legend = F
+  # ) +
+  facet_grid(cols = vars(noiseMetric)) +
+  geom_ribbon(aes(fill = shortName, linetype = NA), alpha = 0.2) +
+  scale_color_discrete("Endpoint") +
+  scale_fill_discrete("Endpoint") +
+  labs(x = "Sound pressure level on (loudest/every) facade [dB(A)]", y =
+         "effect size [%HA, %HSD or %PAF]") +matTheme
+ggsave("graphs/DRF.png",width=12,height = 5)
 
 er_list <-
   left_join(exposure_list, short_l, by = "noiseMetric") %>%mutate(response =  -1000000)
 
 #Spalte response soll numerisch sein
 #Enthält dann entweder %HA, %HSD oder %Risikoerhöhung
-er_list$response<-case_when(# je nachdem, ob Wert für lineare Steigung verfügbar oder nicht.
-             is.na(er_list$rrPer10dB) ~ quadr(er_list),
-             !is.na(er_list$rrPer10dB) ~ linF(er_list))
-
+er_list$response <-
+  case_when(
+    er_list$Lmid < er_list$counterfactualValue ~ set_errors(0, 0),# unter der Schwelle wird keine Wirkung angenommen
+    is.na(er_list$rrPer10dB) ~ quadr(er_list),    # je nachdem, ob Wert für lineare Steigung verfügbar oder nicht
+    !is.na(er_list$rrPer10dB) ~ linF(er_list)
+  )
 er_list <- er_list %>% mutate(affected_i = Exposed * response / 100)
 
 dw_list <-
   data.frame(outcome = c("Annoyance", "Sleep disorders"),
              dw = c(0.02, 0.07))
 
+# Problem des Paketes Error: wenn aus Werten in einem Dataframe Summen gebildet werden,
+# wird automatisch für die Autokorrelation der Default-Wert angewendet.
+# Abweichende Setzungen sind dann nicht möglich. Hier soll aber maximale Korrelation verwendet werden! Deshalb definiere eigene Funktio
+
+sumGrossFehler = function(x){
+  set_errors(sum(x), value=(sum(errors_max(x))-sum(errors_min(x)))/2)
+  }
 
 streetNoiseBurden1 <-
-  er_list %>% filter(burdenCalculation == "paf")  %>% 
+  er_list %>% filter(burdenCalculation == "paf")  %>%
   mutate(PAF_i = affected_i / popHessen / (1 + affected_i / popHessen) *
            100,
-         .keep = "unused") %>%
-  group_by(source, noiseMetric, shortName,outcome) %>%
-  summarise(PAF = sum(PAF_i))%>%
+         .keep = "unused")%>%
+  group_by(source, noiseMetric, shortName,outcome,outcomeGroup) %>%
+  summarise(PAF = sumGrossFehler(PAF_i))%>%
   left_join(., data.frame(filter(
     burden_list, population ==
       "Hessians aged over 40 years"
@@ -222,50 +313,51 @@ streetNoiseBurden1 <-
   by = "outcome")%>%
   left_join(., dw_list, by = "outcome") %>%
   mutate(attrBurden = PAF * burden / 100) %>%
-  select(source, noiseMetric, shortName, outcome, PAF, attrBurden) %>%
-  mutate(dw = NA , HAorHSD = NA) 
-<<<<<<< HEAD
+  select(source, noiseMetric, shortName, outcome,outcomeGroup, PAF, attrBurden) %>%
+  mutate(dw = NA , HAorHSD = NA)
 
-#Problem: die Autokorrelation ist nicht eingetragen#
-
-
-=======
-
-#Problem: die Autokorrelation ist nicht eingetragen#
-
-bla<-set_errors(seq(2,8,1),value=1)
-blubb<-set_errors(seq(5,11,1),value=1)
-correl(bla[1],bla[2])<-1
-correl(bla[1],bla[2])
-print(bla[1]+bla[2],digits=4)
-
-
->>>>>>> 3249b24e34246c46e073382be8ef44273be816dc
-#-------------------------------------------------------#
 streetNoiseBurden2 <- er_list %>%
   filter(burdenCalculation == "total") %>%
-  group_by(source, noiseMetric, shortName,outcome) %>%
-  summarise(HAorHSD = sum(affected_i))%>%
+  group_by(source, noiseMetric, shortName,outcome,outcomeGroup) %>%
+  summarise(HAorHSD = sumGrossFehler(affected_i))%>%
   left_join(., dw_list, by = "outcome") %>%
   mutate(attrBurden = HAorHSD * dw, PAF = NA)
-names(streetNoiseBurden1)
-names(streetNoiseBurden2)
+# names(streetNoiseBurden1)
+# names(streetNoiseBurden2)
 streetNoiseBurden <- rbind(streetNoiseBurden1, streetNoiseBurden2)
+SA0<-data.frame()
+
 pl3 <-
   ggplot(
     streetNoiseBurden,
     aes(
-      x = shortName,
+      x = outcomeGroup,
       xlab = NULL,
       y = 100000 * attrBurden / popHessen,
+    #  group=shortName,
       fill = shortName
     )
   ) +
-  theme(axis.text.x = element_blank()) +
-  geom_col() +geom_errorbar(aes(ymin=errors_min(100000 * attrBurden / popHessen),ymax=errors_max(100000 * attrBurden / popHessen)))+
-  facet_grid(cols = vars(source)) + geom_text(label = streetNoiseBurden$shortName,
-                                              size = 3.5,
-                                              angle = 55) +
-  xlab(NULL) + ylab("attributable Burden /100000")
-pl3
-#ggsave("graphs/StreetNoiseBurden.pdf")
+ # theme(axis.text.x = element_blank()) +
+  geom_col(position = "dodge") +
+  geom_errorbar(aes(
+    ymin = errors_min(100000 * attrBurden / popHessen),
+    ymax = errors_max(100000 * attrBurden / popHessen)),
+    width=.6,
+    size=1,
+    position=position_dodge(.9)
+  ) +
+  facet_grid(cols = vars(source)) +
+  # geom_text(label = streetNoiseBurden$shortName,
+  #           size = 3.5,
+  #           angle = 35,
+  #           position=position_dodge(.9)) +
+  xlab(NULL) + ylab("attributable Burden [DALY/year/100,000 persons]")+
+  scale_fill_discrete("Endpoint")
+pl3+matTheme
+ggsave("graphs/StreetNoiseBurden.png",width=20)
+
+
+
+streetNoiseBurden %>% group_by(shortName) %>%
+  summarise_at(c("PAF","attrBurden"),sum)
