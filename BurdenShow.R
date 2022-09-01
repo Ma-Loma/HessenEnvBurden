@@ -187,9 +187,13 @@ pl1 + geom_step(direction = "hv") + #waagrechter Strich bis zum nächsten Pegelw
   facet_grid(cols = vars(noiseMetric)) +
   geom_segment(aes(xend = Hi, yend = ExposedPerdB/100000)) + #geom_segment, um noch das letzte waagrechte hinzuzufügen. Alleine wären keine senkrechten Striche
   ylim(0, 3.2) + xlim(40, 85) +
-  labs(x = "Sound pressure level on (loudest/every) facade [dB(A)]",y="Exposed [100,000/dB]")+
-  scale_color_discrete("Data Source")+matTheme
+  #labs(x = "Sound pressure level on (loudest/every) facade [dB(A)]",y="Exposed [100,000/dB]")+
+  labs(x = "Pegel am (lautesten/jedem) Fassadenpunkt [dB(A)]",y="Exponierte [100,000/dB]")+
+  scale_color_discrete("Datenquelle")+
+  #scale_color_discrete("data source")+
+  matTheme#+theme(legend.position="none")
 ggsave("graphs/Exposure.png",width=10,height = 5)
+#ggsave("graphs/ExposureEngl.png",width=10,height = 5)
 #exposure_list %>% describe()
 
 short_l <- doseRes_list %>% filter(included == TRUE) %>%
@@ -268,11 +272,16 @@ pl2 + geom_line(size = 1.2)+
   # ) +
   facet_grid(cols = vars(noiseMetric)) +
   geom_ribbon(aes(fill = shortName, linetype = NA), alpha = 0.2) +
-  scale_color_discrete("Endpoint") +
-  scale_fill_discrete("Endpoint") +
-  labs(x = "Sound pressure level on (loudest/every) facade [dB(A)]", y =
-         "effect size [%HA, %HSD or %PAF]") +matTheme
+  scale_color_discrete("Endpunkt") +
+  scale_fill_discrete("Endpunkt") +
+  #scale_color_discrete("endpoint") +
+  #scale_fill_discrete("endpoint") +
+  #labs(x = "Sound pressure level on loudest facade [dB(A)]", y = "effect size [%HA, %HSD or %ExcessRisk]") +
+  labs(x = "Pegel am lautesten Fassadenpunkt [dB(A)]", y = "Effektgröße [%HA, %HSD oder %ExzRisiko]") +
+  matTheme#+theme(legend.position="none")
 ggsave("graphs/DRF.png",width=12,height = 5)
+#ggsave("graphs/DRFEngl.png",width=12,height = 5)
+#ggsave("graphs/DRFOLeg.png",width=10,height = 5)
 
 er_list <-
   left_join(exposure_list, short_l, by = "noiseMetric") %>%mutate(response =  -1000000)
@@ -352,10 +361,12 @@ pl3 <-
   #           size = 3.5,
   #           angle = 35,
   #           position=position_dodge(.9)) +
-  xlab(NULL) + ylab("attributable Burden [DALY/year/100,000 persons]")+
-  scale_fill_discrete("Endpoint")
-pl3+matTheme
-ggsave("graphs/StreetNoiseBurden.png",width=20)
+  xlab(NULL) + ylab("attr. burden [DALY/year/100,000 pers]")+
+  scale_fill_discrete("endpoint")
+pl3 + matTheme + theme(axis.text.x = element_text(angle = 25)) #+theme(legend.position = "none")
+
+ggsave("graphs/StreetNoiseBurdenEngl.png",width=12,height = 5)
+ggsave("graphs/StreetNoiseBurdenOLeg.png",width=10,height = 5)
 
 
 
