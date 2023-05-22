@@ -74,46 +74,6 @@ plus_Lochmann <- plus_Lochmann %>%
   rbind(plus_Lochmann)
 
 
-plus_LDEN_Hege <- read_delim(
-  "rawdata/PLUS_Lden_Hegewald.csv",
-  ";",
-  escape_double = FALSE,
-  locale = locale(decimal_mark = "."),
-  trim_ws = TRUE
-) %>% select(road_lden, GKZ, ew_lden) %>%
-  aggregate(ew_lden ~ road_lden,
-            data = .,
-            sum) %>%
-  set(1, "road_lden", 39.9) %>%
-  mutate(
-    Lo = round(road_lden - 0.05, digits = 2),
-    LoIncluded = TRUE,
-    Hi = round(road_lden + 0.05, digits = 2),
-    HiIncluded = FALSE,
-    Exposed = ew_lden,
-    noiseMetric = "LDEN",
-    source = "PLUS-Kartierung",
-    .keep = "unused"
-  )
-#sum(plus_LDEN_Hege$Exposed)/popHessen
-#Beim Datensatz von Hegewald fehlen weniger als 1 % der Bevölkerung
-plus_L24h <- plus_LDEN_Hege %>% mutate(
-  Lo = Lo - 3.3,
-  Hi = Hi - 3.3,
-  source = "PLUS-Kartierung",
-  noiseMetric = "L24h"
-)
-
-plus_LDEN_red <-
-  plus_LDEN_Hege %>% mutate(Lo = Lo - 3,
-                            Hi = Hi - 3,
-                            source = "PLUS-Kartierung - 3dB")
-
-plus_L24h_red <-
-  plus_L24h %>% mutate(Lo = Lo - 3,
-                       Hi = Hi - 3,
-                       source = "PLUS-Kartierung - 3dB")
-
 END_LDEN <- read_delim(
   "rawdata/Exponierte_ULR_LDEN.csv",
   ";",
@@ -163,17 +123,6 @@ burden_list <- read_delim(
   trim_ws = TRUE
 )
 
-####hier Vergleich von zwei beiden Expositions-Datensätze.
-# bla<-plus_Lochmann %>% filter(noiseMetric=="LDEN")
-# blubb<-left_join(bla,plus_LDEN_Hege,by=c("Hi","noiseMetric")) %>%
-#   mutate(diff=Exposed.x-Exposed.y,
-#          relDiff=(Exposed.x-Exposed.y)/Exposed.x)
-#
-# ggplot(blubb,aes(x=Hi,y=relDiff))+geom_point()
-# ggplot(blubb[-1,],aes(x=Hi,y=diff))+geom_point()
-# ggplot(blubb[-1,],aes(x=Exposed.x,y=diff,color=relDiff))+geom_point()
-# ggplot(blubb[-1,],aes(x=Exposed.x,y=Exposed.y,color=relDiff))+geom_point()
-
 matTheme<-
   theme(text = element_text(size=rel(4)),
         strip.text = element_text(size=rel(4)),
@@ -193,7 +142,6 @@ pl1 + geom_step(direction = "hv") + #waagrechter Strich bis zum nächsten Pegelw
   #scale_color_discrete("data source")+
   matTheme#+theme(legend.position="none")
 ggsave("graphs/Exposure.png",width=10,height = 5)
-#ggsave("graphs/ExposureEngl.png",width=10,height = 5)
 #exposure_list %>% describe()
 
 short_l <- doseRes_list %>% filter(included == TRUE) %>%
