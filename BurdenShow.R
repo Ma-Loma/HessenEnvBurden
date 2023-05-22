@@ -19,7 +19,7 @@ popHessen <-
   6116203#Quelle: Summe der Exponierten nach Kartierungsdokumentation
 
 doseRes_list <- read_delim(
-  "rawdata/ERF_Study_Data.csv",
+  "rawdata/ERF_Study_Data.tsv",
   "\t",
   escape_double = FALSE,
   locale = locale(date_names = "de", decimal_mark = ","),
@@ -75,7 +75,7 @@ plus_Lochmann <- plus_Lochmann %>%
 
 
 END_LDEN <- read_delim(
-  "rawdata/Exponierte_ULR_LDEN.csv",
+  "rawdata/Exposed_ULR_LDEN.tsv",
   "\t",
   escape_double = FALSE,
   locale = locale(date_names = "de",
@@ -92,7 +92,7 @@ END_L24h <-
   )
 
 END_Lnight <- read_delim(
-  "rawdata/Exponierte_ULR_Lnight.csv",
+  "rawdata/Exposed_ULR_Lnight.tsv",
   "\t",
   escape_double = FALSE,
   locale = locale(date_names = "de",
@@ -116,7 +116,7 @@ exposure_list <-
         ) %>% .[-which(.$Lmid == Inf), ]
 
 burden_list <- read_delim(
-  "rawdata/AllRiskCauseSpecificBurden.csv",
+  "rawdata/AllRiskCauseSpecificBurden.tsv",
   "\t",
   escape_double = FALSE,
   locale = locale(date_names = "de", decimal_mark = ","),
