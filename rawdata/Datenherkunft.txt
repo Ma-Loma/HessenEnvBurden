@@ -1,0 +1,8 @@
+Die Datei mit der Endung 2 wurde erstellt aus:
+"N:/4all.i4/I4.5 - Umgebungslärm/05 - Aufträge/53 e 2433 Wirkungen des Lärms/Daten/LärmULuft/txt/"
+Darin liegen in Unterordnern für sowohl für Hauspunkte als auch für Fassadenpunkte.
+Vermutlich die gleichen, die auch Hegewald für ihre Auswertung verwendet hat.
+Probleme:
+ - Offensichtlich ist die Anzahl der Belasteten bei Hauspegeln etwas bzw. bei Fassadenpegeln viel zu niedrig.
+Möglicher Grund: schon bei den Rohdaten (dbf) fehlen anscheinend die von Pegeln unbelastete Punkte
+ - Bewohnerzahl wurde mit nur 2 Nachkommastellen angegeben.
