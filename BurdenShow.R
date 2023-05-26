@@ -4,10 +4,8 @@ library(readr)
 library(dplyr)
 library(tidyverse)
 library(purrr)
-#install.packages("errors")
 library(errors)
 library(Hmisc)
-#install.packages("ggrepel")
 require("ggrepel")
 
 # install.packages("remotes")
@@ -18,26 +16,23 @@ require("ggrepel")
 popHessen <-
   6116203#Quelle: Summe der Exponierten nach Kartierungsdokumentation
 
-doseRes_list <- read_delim(
+ERF_list <- read_delim(
   "rawdata/ERF_Study_Data.tsv",
   "\t",
   escape_double = FALSE,
   locale = locale(date_names = "de", decimal_mark = ","),
   trim_ws = TRUE
 )
-doseRes_list$rrPer10dB <-
-  set_errors(doseRes_list$rrPer10dB,
-             doseRes_list$rrPer10dB - doseRes_list$rrLoCI)
-doseRes_list$linearTerm <- doseRes_list$linearTerm %>% set_errors()
-doseRes_list$constantTerm <-
-  doseRes_list$constantTerm %>% set_errors()
-doseRes_list$quadraticTerm <-
-  doseRes_list$quadraticTerm %>% set_errors()
+ERF_list$rrPer10dB <-
+  set_errors(ERF_list$rrPer10dB,
+             ERF_list$rrPer10dB - ERF_list$rrLoCI)
+ERF_list$linearTerm <- ERF_list$linearTerm %>% set_errors()
+ERF_list$constantTerm <-
+  ERF_list$constantTerm %>% set_errors()
+ERF_list$quadraticTerm <-
+  ERF_list$quadraticTerm %>% set_errors()
 
-set <-
-  .Primitive("[[<-") #eine Hilfsfunktion, die definiert wird, um in Pipes Werte manipulieren zu können.
-
-plus_Lochmann <- read_delim(
+exposureL_PlusLochmann <- read_delim(
   "rawdata/StraßePlusHessen2.txt",
   " ",
   escape_double = FALSE,
@@ -54,7 +49,7 @@ plus_Lochmann <- read_delim(
     noiseMetric = Metrik,
     source = "PLUS"
   )
-plus_Lochmann$noiseMetric <- plus_Lochmann$noiseMetric %>%
+exposureL_PlusLochmann$noiseMetric <- exposureL_PlusLochmann$noiseMetric %>%
   ifelse(. == "LN", "Lnight", .)
 
 # persSum<-plus_Lochmann %>% group_by(noiseMetric) %>% summarise_at(c("Exposed"),sum)
@@ -62,19 +57,19 @@ plus_Lochmann$noiseMetric <- plus_Lochmann$noiseMetric %>%
 # persSum[2]/popHessen
 ## rausfinden, dass in diesem Datensatz etwa 9 % weniger Belastete zu finden sind als hessische Einwohner.
 
-plus_Lochmann <- plus_Lochmann %>% filter(noiseMetric == "LDEN") %>%
+exposureL_PlusLochmann <- exposureL_PlusLochmann %>% filter(noiseMetric == "LDEN") %>%
   mutate(noiseMetric = "L24h",
          Lo = Lo - 3.3,
          Hi = Hi - 3.3) %>%
-  rbind(plus_Lochmann)
-plus_Lochmann <- plus_Lochmann %>%
+  rbind(exposureL_PlusLochmann)
+exposureL_PlusLochmann <- exposureL_PlusLochmann %>%
   mutate(source = "PLUS - 3 dB",
          Lo = Lo - 3,
          Hi = Hi - 3) %>%
-  rbind(plus_Lochmann)
+  rbind(exposureL_PlusLochmann)
 
 
-END_LDEN <- read_delim(
+exposureL_END_LDEN <- read_delim(
   "rawdata/Exposed_ULR_LDEN.tsv",
   "\t",
   escape_double = FALSE,
@@ -83,15 +78,15 @@ END_LDEN <- read_delim(
   trim_ws = TRUE
 ) %>% mutate(noiseMetric = "LDEN", source = "END")
 
-END_L24h <-
-  END_LDEN %>% mutate(
+exposureL_END_L24h <-
+  exposureL_END_LDEN %>% mutate(
     Lo = Lo - 3.3,
     Hi = Hi - 3.3,
     source = "END",
     noiseMetric = "L24h"
   )
 
-END_Lnight <- read_delim(
+exposureL_END_Lnight <- read_delim(
   "rawdata/Exposed_ULR_Lnight.tsv",
   "\t",
   escape_double = FALSE,
@@ -101,14 +96,14 @@ END_Lnight <- read_delim(
 ) %>% mutate(noiseMetric = "Lnight", source = "END")
 
 exposure_list <-
-  rbind(plus_Lochmann,
+  rbind(exposureL_PlusLochmann,
         # plus_LDEN_Hege,
         # plus_L24h,
         # plus_LDEN_red,
         # plus_L24h_red,
-        END_LDEN,
-        END_L24h,
-        END_Lnight) %>% mutate(
+        exposureL_END_LDEN,
+        exposureL_END_L24h,
+        exposureL_END_Lnight) %>% mutate(
           Lmid = (Lo + Hi) / 2,
           ExposedPerdB = Exposed /
             (Hi - Lo),
@@ -144,7 +139,7 @@ pl1 + geom_step(direction = "hv") + #waagrechter Strich bis zum nächsten Pegelw
 ggsave("graphs/Exposure.png",width=10,height = 5)
 #exposure_list %>% describe()
 
-short_l <- doseRes_list %>% filter(included == TRUE) %>%
+short_l <- ERF_list %>% filter(included == TRUE) %>%
   select(
     shortName,
     outcome,
