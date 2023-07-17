@@ -1,7 +1,5 @@
 rm(list = ls())
 
-
-
 library(readr)
 library(dplyr)
 library(tidyverse)
@@ -16,7 +14,7 @@ library(styler)
 # install.packages("ggpattern")
 # library(ggpattern)
 
-popHessen <-
+pop_hessen <-
   6116203 # Quelle: Summe der Exponierten nach Kartierungsdokumentation
 
 ERF_list <- read_delim(
@@ -282,7 +280,7 @@ streetNoiseBurden1 <-
   er_list %>%
   filter(burdenCalculation == "paf") %>%
   mutate(
-    PAF_i = affected_i / popHessen / (1 + affected_i / popHessen) *
+    PAF_i = affected_i / pop_hessen / (1 + affected_i / pop_hessen) *
       100,
     .keep = "unused"
   ) %>%
@@ -316,7 +314,7 @@ pl3 <-
     aes(
       x = outcomeGroup,
       xlab = NULL,
-      y = 100000 * attrBurden / popHessen,
+      y = 100000 * attrBurden / pop_hessen,
       #  group=shortName,
       fill = shortName
     )
@@ -325,8 +323,8 @@ pl3 <-
   geom_col(position = "dodge") +
   geom_errorbar(
     aes(
-      ymin = errors_min(100000 * attrBurden / popHessen),
-      ymax = errors_max(100000 * attrBurden / popHessen)
+      ymin = errors_min(100000 * attrBurden / pop_hessen),
+      ymax = errors_max(100000 * attrBurden / pop_hessen)
     ),
     width = .6,
     size = 1,
