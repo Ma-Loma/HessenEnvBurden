@@ -229,7 +229,7 @@ pl2 <-
       ymax = errors_max(effectSize)
     )
   )
-pl2 + geom_line(size = 1.2) +
+pl2 + geom_line(linewidth = 1.2) +
   # geom_text_repel(data=drfLabel,inherit.aes = F,#to be to facet selection!
   #   mapping=aes(x = 70, y = Ende,
   #   label = shortName,color=shortName),
